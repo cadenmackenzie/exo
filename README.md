@@ -104,6 +104,82 @@ source install.sh
 2. Run `./configure_mlx.sh`. This runs commands to optimize GPU memory allocation on Apple Silicon Macs.
 
 
+### Windows Installation
+
+## Install WSL
+
+```sh
+wsl --install --no-distribution
+```
+Restart your computer.
+
+Check available distributions
+```sh
+wsl --list --online
+```
+Install ubuntu
+```sh
+wsl --install ubuntu
+```
+Set username and password
+
+Close terminal and open new terminal.
+
+Chose ubuntu terminal.
+
+Clone exo repo
+
+Update
+```sh
+sudo apt update
+```
+
+Install python3-venv
+```sh
+sudo apt install python3-venv
+```
+
+Install build-essential
+```sh
+sudo apt install build-essential
+```
+
+Install python3-dev
+```sh
+sudo apt install python3-dev
+```
+
+Install clang
+```sh
+sudo apt install clang
+```
+
+Install libssl-dev
+```sh
+sudo apt install libssl-dev
+```
+
+Install libffi-dev
+```sh
+sudo apt install libffi-dev
+```
+
+Install libclang
+```sh
+sudo apt install libclang-dev
+```
+
+Set gcc as compiler
+```sh
+export CC=gcc
+```
+
+Install exo requirements
+```sh
+source install.sh
+```
+
+
 ## Documentation
 
 ### Example Usage on Multiple MacOS Devices
