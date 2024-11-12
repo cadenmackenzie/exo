@@ -169,10 +169,12 @@ Install libclang
 sudo apt install libclang-dev
 ```
 
-Set gcc as compiler
+Install llvm-dev
 ```sh
-export CC=gcc
+sudo apt install llvm-dev
 ```
+
+
 
 Install exo requirements
 ```sh
