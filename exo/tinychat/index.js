@@ -30,12 +30,68 @@ document.addEventListener("alpine:init", () => {
     // Pending message storage
     pendingMessage: null,
 
-    init() {
-      // Clean up any pending messages
-      localStorage.removeItem("pendingMessage");
+    // Add these new properties
+    downloadedModels: null,
 
-      // Start polling for download progress
-      this.startDownloadProgressPolling();
+    // Add this new property for model options
+    modelOptions: {
+      "llama-3.2-1b": { name: "Llama 3.2 1B" },
+      "llama-3.2-3b": { name: "Llama 3.2 3B" },
+      "llama-3.1-8b": { name: "Llama 3.1 8B" },
+      "llama-3.1-70b": { name: "Llama 3.1 70B" },
+      "llama-3.1-70b-bf16": { name: "Llama 3.1 70B (BF16)" },
+      "llama-3.1-405b": { name: "Llama 3.1 405B" },
+      "llama-3.1-405b-8bit": { name: "Llama 3.1 405B (8-bit)" },
+      "gemma2-9b": { name: "Gemma2 9B" },
+      "gemma2-27b": { name: "Gemma2 27B" },
+      "nemotron-70b": { name: "Nemotron 70B" },
+      "nemotron-70b-bf16": { name: "Nemotron 70B (BF16)" },
+      "mistral-nemo": { name: "Mistral Nemo" },
+      "mistral-large": { name: "Mistral Large" },
+      "deepseek-coder-v2-lite": { name: "Deepseek Coder V2 Lite" },
+      "deepseek-coder-v2.5": { name: "Deepseek Coder V2.5" },
+      "llava-1.5-7b-hf": { name: "LLaVa 1.5 7B (Vision Model)" },
+      "qwen-2.5-coder-1.5b": { name: "Qwen 2.5 Coder 1.5B" },
+      "qwen-2.5-coder-3b": { name: "Qwen 2.5 Coder 3B" },
+      "qwen-2.5-coder-7b": { name: "Qwen 2.5 Coder 7B" },
+      "qwen-2.5-coder-14b": { name: "Qwen 2.5 Coder 14B" },
+      "qwen-2.5-coder-32b": { name: "Qwen 2.5 Coder 32B" },
+      "qwen-2.5-7b": { name: "Qwen 2.5 7B" },
+      "qwen-2.5-math-7b": { name: "Qwen 2.5 7B (Math)" },
+      "qwen-2.5-14b": { name: "Qwen 2.5 14B" },
+      "qwen-2.5-72b": { name: "Qwen 2.5 72B" },
+      "qwen-2.5-math-72b": { name: "Qwen 2.5 72B (Math)" },
+      "llama-3-8b": { name: "Llama 3 8B" },
+      "llama-3-70b": { name: "Llama 3 70B" }
+    },
+
+    // Add this property
+    modelShards: null,
+
+    async init() {
+      try {
+        console.log('Initializing with endpoint:', this.endpoint);
+        
+        // Fetch model shards first
+        const shardsResponse = await fetch(`${this.endpoint}/models/shards`);
+        const shardsData = await shardsResponse.json();
+        this.modelShards = shardsData.model_shards;
+        console.log('Loaded model shards:', this.modelShards);
+        
+        // Then fetch downloaded models
+        const modelsResponse = await fetch(`${this.endpoint}/models/downloaded`);
+        const modelsData = await modelsResponse.json();
+        this.downloadedModels = modelsData.models;
+        console.log('Loaded downloaded models:', this.downloadedModels);
+        
+        // Now check all models
+        Object.keys(this.modelOptions).forEach(modelId => {
+          const isDownloaded = this.isModelDownloaded(modelId);
+          console.log(`Model ${modelId} downloaded: ${isDownloaded}`);
+        });
+      } catch (error) {
+        console.error('Error initializing model data:', error);
+      }
     },
 
     removeHistory(cstate) {
@@ -357,6 +413,7 @@ document.addEventListener("alpine:init", () => {
               }
               this.lastErrorMessage = null;
               this.downloadProgress = null;
+              await this.fetchDownloadedModels();
             }
           } else {
             // No ongoing download
@@ -379,6 +436,48 @@ document.addEventListener("alpine:init", () => {
         this.fetchDownloadProgress();
       }, 1000); // Poll every second
     },
+
+    // Add this new method
+    async fetchDownloadedModels() {
+      try {
+        const response = await fetch(`${this.endpoint}/models/downloaded`);
+        if (response.ok) {
+          const data = await response.json();
+          this.downloadedModels = data.models;
+        }
+      } catch (error) {
+        console.error("Error fetching downloaded models:", error);
+      }
+    },
+
+    isModelDownloaded(modelId) {
+        if (!this.modelShards || !this.downloadedModels) {
+            return false;
+        }
+
+        const modelShards = this.modelShards[modelId];
+        if (!modelShards) {
+            return false;
+        }
+
+        const mlxShard = modelShards.MLXDynamicShardInferenceEngine;
+        const tinygradShard = modelShards.TinygradDynamicShardInferenceEngine;
+
+        return this.downloadedModels.some(downloadedModel => {
+            // Convert models--org--name to org/name
+            const normalizedDownloaded = downloadedModel.replace(/^models--/, '').replace(/--/g, '/');
+            
+            // Check both MLX and Tinygrad shards
+            const mlxMatch = mlxShard && normalizedDownloaded === mlxShard.model_id;
+            const tinygradMatch = tinygradShard && normalizedDownloaded === tinygradShard.model_id;
+
+            if (mlxMatch || tinygradMatch) {
+                console.log(`Found match for ${modelId}:`, normalizedDownloaded);
+            }
+
+            return mlxMatch || tinygradMatch;
+        });
+    }
   }));
 });
 

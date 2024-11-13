@@ -16,6 +16,7 @@ from exo.inference.tokenizers import resolve_tokenizer
 from exo.orchestration import Node
 from exo.models import model_base_shards
 from typing import Callable
+import os
 
 
 class Message:
@@ -171,6 +172,8 @@ class ChatGPTAPI:
     cors.add(self.app.router.add_post("/chat/completions", self.handle_post_chat_completions), {"*": cors_options})
     cors.add(self.app.router.add_post("/v1/chat/completions", self.handle_post_chat_completions), {"*": cors_options})
     cors.add(self.app.router.add_get("/v1/download/progress", self.handle_get_download_progress), {"*": cors_options})
+    cors.add(self.app.router.add_get("/v1/models/downloaded", self.handle_get_downloaded_models), {"*": cors_options})
+    cors.add(self.app.router.add_get("/v1/models/shards", self.handle_get_model_shards), {"*": cors_options})
 
     self.static_dir = Path(__file__).parent.parent/"tinychat"
     self.app.router.add_get("/", self.handle_root)
@@ -346,6 +349,49 @@ class ChatGPTAPI:
     finally:
       deregistered_callback = self.node.on_token.deregister(callback_id)
       if DEBUG >= 2: print(f"Deregister {callback_id=} {deregistered_callback=}")
+
+  async def handle_get_downloaded_models(self, request):
+    try:
+        cache_dir = os.path.expanduser("~/.cache/huggingface/hub")
+        if not os.path.exists(cache_dir):
+            return web.json_response({"models": []})
+            
+        # Get all model directories
+        models = []
+        for root, dirs, files in os.walk(cache_dir):
+            if "snapshots" in dirs:
+                # Extract model name from path
+                model_path = os.path.relpath(root, cache_dir)
+                if not model_path.startswith('.'):  # Skip hidden directories
+                    models.append(model_path)
+        
+        return web.json_response({"models": models})
+    except Exception as e:
+        print(f"Error getting downloaded models: {e}")
+        return web.json_response({"models": []})
+
+  async def handle_get_model_shards(self, request):
+    try:
+        # Import model_base_shards
+        from exo.models import model_base_shards
+        
+        # Convert Shard objects to dictionaries
+        shards_dict = {}
+        for model_id, engines in model_base_shards.items():
+            shards_dict[model_id] = {
+                engine_name: {
+                    "model_id": shard.model_id,
+                    "start_layer": shard.start_layer,
+                    "end_layer": shard.end_layer,
+                    "n_layers": shard.n_layers
+                }
+                for engine_name, shard in engines.items()
+            }
+        
+        return web.json_response({"model_shards": shards_dict})
+    except Exception as e:
+        print(f"Error getting model shards: {e}")
+        return web.json_response({"model_shards": {}})
 
   async def run(self, host: str = "0.0.0.0", port: int = 8000):
     runner = web.AppRunner(self.app)
