@@ -7,7 +7,7 @@ from exo.download.shard_download import ShardDownloader
 from exo.download.download_progress import RepoProgressEvent
 from exo.download.hf.hf_helpers import (
     download_repo_files, RepoProgressEvent, get_weight_map, 
-    get_allow_patterns, get_repo_root, fetch_file_list, get_local_snapshot_dir
+    get_allow_patterns, get_repo_root, fetch_file_list, get_local_snapshot_dir, filter_repo_objects
 )
 from exo.helpers import AsyncCallbackSystem, DEBUG
 from exo.models import model_cards, get_repo
@@ -106,31 +106,30 @@ class HFShardDownloader(ShardDownloader):
             return None
         
         # Get the patterns for this shard
-        patterns = get_allow_patterns(weight_map, self.current_shard)
+        allow_patterns = get_allow_patterns(weight_map, self.current_shard)
         
-        # First check which files exist locally
         status = {}
-        local_files = []
-        local_sizes = {}
-        
-        for pattern in patterns:
-            if pattern.endswith('safetensors') or pattern.endswith('mlx'):
-                file_path = snapshot_dir / pattern
+
+        async with aiohttp.ClientSession() as session:
+            # Get remote file list once
+            file_list = await fetch_file_list(session, self.current_repo_id, self.revision)
+            
+            # Filter files based on patterns
+            filtered_files = list(filter_repo_objects(
+                file_list, 
+                allow_patterns=allow_patterns,
+                key=lambda x: x["path"]
+            ))
+
+            # Initialize all files to 0% progress
+            for file_info in filtered_files:
+                file_path = snapshot_dir / file_info["path"]
+                status[file_info["path"]] = 0.0
+                
+                # Update progress if file exists
                 if await aios.path.exists(file_path):
                     local_size = await aios.path.getsize(file_path)
-                    local_files.append(pattern)
-                    local_sizes[pattern] = local_size
-
-        # Only fetch remote info if we found local files
-        if local_files:
-            async with aiohttp.ClientSession() as session:
-                file_list = await fetch_file_list(session, self.current_repo_id, self.revision)
-                
-                for pattern in local_files:
-                    for file in file_list:
-                        if file["path"].endswith(pattern):
-                            status[pattern] = (local_sizes[pattern] / file["size"]) * 100
-                            break
+                    status[file_info["path"]] = (local_size / file_info["size"]) * 100
 
         return status
       
