@@ -32,6 +32,8 @@ document.addEventListener("alpine:init", () => {
     // Pending message storage
     pendingMessage: null,
 
+    modelPool: {},
+
     init() {
       // Clean up any pending messages
       localStorage.removeItem("pendingMessage");
@@ -77,50 +79,26 @@ document.addEventListener("alpine:init", () => {
     async populateSelector() {
       try {
         const response = await fetch(`${window.location.origin}/modelpool`);
-        const responseText = await response.text(); // Get raw response text first
+        const responseText = await response.text();
         
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         
-        // Try to parse the response text
-        let responseJson;
-        try {
-          responseJson = JSON.parse(responseText);
-        } catch (parseError) {
-          console.error('Failed to parse JSON:', parseError);
-          throw new Error(`Invalid JSON response: ${responseText}`);
-        }
-
-        const sel = document.querySelector(".model-select");
-        if (!sel) {
-          throw new Error("Could not find model selector element");
-        }
-
-        // Clear the current options and add new ones
-        sel.innerHTML = '';
-          
-        const modelDict = responseJson["model pool"];
-        if (!modelDict) {
-          throw new Error("Response missing 'model pool' property");
-        }
-
-        Object.entries(modelDict).forEach(([key, value]) => {
-          const opt = document.createElement("option");
-          opt.value = key;
-          opt.textContent = value;
-          sel.appendChild(opt);
-        });
-
+        const responseJson = JSON.parse(responseText);
+        this.modelPool = responseJson["model pool"] || {};
+        
         // Set initial value to the first model
-        const firstKey = Object.keys(modelDict)[0];
+        const firstKey = Object.keys(this.modelPool)[0];
         if (firstKey) {
-          sel.value = firstKey;
           this.cstate.selectedModel = firstKey;
         }
       } catch (error) {
-        console.error("Error populating model selector:", error);
-        this.errorMessage = `Failed to load models: ${error.message}`;
+        console.error("Error populating models:", error);
+        this.errorMessage = {
+          basic: `Failed to load models: ${error.message}`,
+          stack: error.stack
+        };
       }
     },
 
@@ -466,6 +444,32 @@ document.addEventListener("alpine:init", () => {
       this.downloadProgressInterval = setInterval(() => {
         this.fetchDownloadProgress();
       }, 1000); // Poll every second
+    },
+
+    isModelDownloaded(modelId) {
+      // TODO: Implement actual check
+      return Math.random() > 0.5; // Placeholder
+    },
+
+    getModelSize(modelId) {
+      // TODO: Implement actual size retrieval
+      return `${(Math.random() * 10).toFixed(1)}GB`; // Placeholder
+    },
+
+    async removeModel(modelId) {
+      if (confirm(`Are you sure you want to remove ${this.modelPool[modelId]}?`)) {
+        try {
+          // TODO: Implement actual model removal
+          console.log(`Removing model: ${modelId}`);
+          // await fetch(`${this.endpoint}/models/${modelId}`, { method: 'DELETE' });
+        } catch (error) {
+          console.error('Failed to remove model:', error);
+          this.errorMessage = {
+            basic: `Failed to remove model: ${error.message}`,
+            stack: error.stack
+          };
+        }
+      }
     },
   }));
 });

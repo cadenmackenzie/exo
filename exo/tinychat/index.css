@@ -142,6 +142,8 @@ main {
   align-items: center;
   padding-top: 1rem;
   padding-bottom: 11rem;
+  padding-left: 1rem;
+  padding-right: 1rem;
 }
 
 .message {
@@ -293,7 +295,8 @@ main {
   /* linear gradient from background-color to transparent on the top */
   background: linear-gradient(0deg, var(--primary-bg-color) 55%, transparent 100%);
 
-  width: 100%;
+  width: calc(100% - 300px);
+  left: 300px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -380,25 +383,6 @@ p {
 
 .monospace {
   font-family: monospace;
-}
-
-.model-selector {
-  display: flex;
-  justify-content: center;
-  padding: 20px 0;
-}
-.model-selector select {
-  padding: 10px 20px;
-  font-size: 16px;
-  border: 1px solid #ccc;
-  border-radius: 5px;
-  background-color: #f8f8f8;
-  cursor: pointer;
-}
-.model-selector select:focus {
-  outline: none;
-  border-color: #007bff;
-  box-shadow: 0 0 0 2px rgba(0,123,255,.25);
 }
 
 /* Image upload button styles */
@@ -492,4 +476,116 @@ p {
 
 .clear-history-button i {
   font-size: 14px;
+}
+
+/* Add these new styles */
+.sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 300px;
+    background-color: var(--secondary-bg-color);
+    border-right: 1px solid var(--tertiary-bg-color);
+    padding: 1rem;
+    overflow-y: auto;
+}
+
+.sidebar-title {
+    text-align: center;
+    margin-bottom: 1.5rem;
+    font-size: 1.5rem;
+}
+
+.model-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.model-item {
+    padding: 1rem;
+    background-color: var(--tertiary-bg-color);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.model-item:hover {
+    background-color: var(--primary-color-transparent);
+}
+
+.model-item.selected {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.model-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.model-details {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.8rem;
+    color: var(--accent-color);
+}
+
+.remove-model-btn {
+    background: none;
+    border: none;
+    color: var(--red-color);
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.remove-model-btn:hover {
+    background-color: var(--red-color);
+    color: white;
+}
+
+/* Modify main content to accommodate sidebar */
+.main-content {
+    margin-left: 300px;
+    width: calc(100% - 300px);
+}
+
+/* Adjust existing styles */
+.messages {
+    /* Update padding to account for sidebar */
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
+.input-container {
+    /* Update width and position for sidebar */
+    width: calc(100% - 300px);
+    left: 300px;
+}
+
+/* Add responsive design */
+@media (max-width: 768px) {
+    .sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+    }
+
+    .sidebar.active {
+        transform: translateX(0);
+    }
+
+    .main-content {
+        margin-left: 0;
+        width: 100%;
+    }
+
+    .input-container {
+        width: 100%;
+        left: 0;
+    }
 }
