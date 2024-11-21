@@ -38,19 +38,28 @@
                     <div class="model-info">
                         <span class="model-name" x-text="displayName"></span>
                         <span class="model-status">
-                            <!-- Placeholder for model status -->
-                            <template x-if="isModelDownloaded(modelId)">
+                            <template x-if="getModelDownloadStatus(modelId).isDownloaded">
                                 <i class="fas fa-check-circle" title="Downloaded"></i>
                             </template>
-                            <template x-if="!isModelDownloaded(modelId)">
+                            <template x-if="!getModelDownloadStatus(modelId).isDownloaded">
                                 <i class="fas fa-cloud" title="Available to download"></i>
                             </template>
                         </span>
                     </div>
                     <div class="model-details">
-                        <!-- Placeholder for model details -->
-                        <span class="model-size" x-text="getModelSize(modelId)"></span>
-                        <template x-if="isModelDownloaded(modelId)">
+                        <!-- Add progress bar -->
+                        <div class="model-progress">
+                            <div class="progress-bar-container">
+                                <div class="progress-bar"
+                                     :style="`width: ${(getModelDownloadStatus(modelId).downloaded / getModelDownloadStatus(modelId).total) * 100}%`">
+                                </div>
+                            </div>
+                            <span class="model-size" x-text="formatProgress(
+                                getModelDownloadStatus(modelId).downloaded,
+                                getModelDownloadStatus(modelId).total
+                            )"></span>
+                        </div>
+                        <template x-if="getModelDownloadStatus(modelId).isDownloaded">
                             <button @click.stop="removeModel(modelId)" 
                                     class="remove-model-btn" 
                                     title="Remove downloaded model">
