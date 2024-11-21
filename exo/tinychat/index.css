@@ -558,3 +558,37 @@ main {
   color: var(--secondary-color-transparent);
   opacity: 0.8;
 }
+
+.sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.refresh-button {
+  background: none;
+  border: none;
+  color: var(--foreground-color);
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+.refresh-button:hover {
+  background-color: var(--secondary-color-transparent);
+}
+
+.refresh-button.spinning i {
+  animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

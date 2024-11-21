@@ -35,6 +35,7 @@ document.addEventListener("alpine:init", () => {
     pendingMessage: null,
 
     modelPoolInterval: null,
+    isDownloadInProgress: false,
 
     // Add models state alongside existing state
     models: {},
@@ -46,11 +47,8 @@ document.addEventListener("alpine:init", () => {
       // Start polling for download progress
       this.startDownloadProgressPolling();
       
-      // Call populateSelector immediately after initialization
-      this.populateSelector();
-      this.modelPoolInterval = setInterval(() => {
-        this.populateSelector();
-      }, 5000);
+      // Initial population of models - but don't start polling automatically
+      this.populateSelector(true);
     },
 
     removeHistory(cstate) {
@@ -87,7 +85,7 @@ document.addEventListener("alpine:init", () => {
       return `${s}s`;
     },
 
-    async populateSelector() {
+    async populateSelector(isInitialLoad = false) {
       try {
         const response = await fetch(`${window.location.origin}/modelpool`);
         if (!response.ok) {
@@ -96,23 +94,52 @@ document.addEventListener("alpine:init", () => {
 
         const data = await response.json();
         
-        // Update the models state with the full model pool data
+        // Update the models state
         Object.entries(data["model pool"]).forEach(([key, value]) => {
           if (!this.models[key]) {
             this.models[key] = value;
           } else {
-            // Update existing model info while preserving reactivity
-            this.models[key].name = value.name;
-            this.models[key].downloaded = value.downloaded;
-            this.models[key].download_percentage = value.download_percentage;
-            this.models[key].total_size = value.total_size;
-            this.models[key].total_downloaded = value.total_downloaded;
+            Object.assign(this.models[key], value);
           }
         });
+        console.log(this.models)
+
+        // Check if there are any active downloads using downloadProgress
+        const hasActiveDownloads = this.downloadProgress && 
+                                 this.downloadProgress.length > 0 && 
+                                 this.downloadProgress.some(progress => !progress.isComplete);
+        
+        // Update download status and manage interval
+        this.isDownloadInProgress = hasActiveDownloads;
+        
+        if (!isInitialLoad) {
+          if (hasActiveDownloads && !this.modelPoolInterval) {
+            this.startModelPoolPolling();
+          } else if (!hasActiveDownloads && this.modelPoolInterval) {
+            this.stopModelPoolPolling();
+          }
+        }
                 
       } catch (error) {
         console.error("Error populating model selector:", error);
         this.setError(error);
+        this.stopModelPoolPolling();
+      }
+    },
+
+    startModelPoolPolling() {
+      if (!this.modelPoolInterval) {
+        this.modelPoolInterval = setInterval(() => {
+          this.populateSelector(false);
+        }, 5000);
+      }
+    },
+
+    stopModelPoolPolling() {
+      if (this.modelPoolInterval) {
+        clearInterval(this.modelPoolInterval);
+        this.modelPoolInterval = null;
+        this.isDownloadInProgress = false;
       }
     },
 

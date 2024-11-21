@@ -26,7 +26,16 @@
 <body>
 <main x-data="state" x-init="console.log(endpoint)">
   <div class="sidebar">
-    <h2 class="megrim-regular" style="margin-bottom: 20px;">Models</h2>
+    <div class="sidebar-header">
+      <h2 class="megrim-regular">Models</h2>
+      <button 
+        @click="populateSelector(false)" 
+        class="refresh-button" 
+        :class="{ 'spinning': isDownloadInProgress && modelPoolInterval !== null }"
+        :title="isDownloadInProgress ? 'Download in progress...' : 'Refresh models'">
+        <i class="fas fa-sync-alt"></i>
+      </button>
+    </div>
     <template x-for="(model, key) in models" :key="key">
         <div class="model-option" 
              :class="{ 'selected': cstate.selectedModel === key }"
