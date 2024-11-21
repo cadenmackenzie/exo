@@ -471,6 +471,20 @@ document.addEventListener("alpine:init", () => {
         }
       }
     },
+
+    getModelDownloadStatus(modelId) {
+        // TODO: Implement actual download status check
+        // Placeholder that returns random values
+        return {
+            downloaded: Math.floor(Math.random() * 5 * 1024), // Random size in MB
+            total: 5 * 1024, // 5GB total size
+            isDownloaded: Math.random() > 0.5
+        };
+    },
+
+    formatProgress(downloaded, total) {
+        return `${this.formatBytes(downloaded * 1024 * 1024)} / ${this.formatBytes(total * 1024 * 1024)}`;
+    },
   }));
 });
 
