@@ -179,6 +179,7 @@ class ChatGPTAPI:
     cors.add(self.app.router.add_get("/healthcheck", self.handle_healthcheck), {"*": cors_options})
     cors.add(self.app.router.add_post("/quit", self.handle_quit), {"*": cors_options})
     cors.add(self.app.router.add_delete("/models/{model_name}", self.handle_delete_model), {"*": cors_options})
+    cors.add(self.app.router.add_post("/cancel_download", self.handle_cancel_download), {"*": cors_options})
 
     if "__compiled__" not in globals():
       self.static_dir = Path(__file__).parent.parent/"tinychat"
@@ -469,6 +470,37 @@ class ChatGPTAPI:
         return web.json_response({
             "detail": f"Server error: {str(e)}"
         }, status=500)
+
+  async def handle_cancel_download(self, request):
+    try:
+        data = await request.json()
+        repo_id = data.get('repo_id')
+        revision = data.get('revision')
+
+        if not repo_id or not revision:
+            return web.json_response(
+                {"detail": "Missing repo_id or revision"}, 
+                status=400
+            )
+
+        # Just remove the download progress entry to stop the download
+        download_key = f"{repo_id}@{revision}"
+        if download_key in self.download_progress:
+            # Update status to cancelled instead of removing
+            self.download_progress[download_key]["status"] = "cancelled"
+            
+        return web.json_response({
+            "status": "success",
+            "message": "Download cancelled. Partial download remains available."
+        })
+
+    except Exception as e:
+        print(f"Error in handle_cancel_download: {str(e)}")
+        traceback.print_exc()
+        return web.json_response(
+            {"detail": f"Server error: {str(e)}"}, 
+            status=500
+        )
 
   async def run(self, host: str = "0.0.0.0", port: int = 52415):
     runner = web.AppRunner(self.app)

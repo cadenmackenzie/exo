@@ -200,12 +200,24 @@
     <template x-for="(progress, index) in downloadProgress" :key="index">
       <div class="download-progress-node">
         <br>
-        <h3 x-text="`Download ${index + 1}`"></h3>
+        <div class="download-header">
+          <h3 x-text="`Download ${index + 1}`"></h3>
+          <button 
+            @click="cancelDownload(progress.repo_id, progress.repo_revision)"
+            class="cancel-download-button"
+            x-show="!progress.isComplete && progress.status !== 'cancelled'">
+            <i class="fas fa-times"></i> Cancel
+          </button>
+        </div>
         <p><strong>Model:</strong> <span x-text="progress.repo_id + '@' + progress.repo_revision"></span></p>
         <p><strong>Status:</strong> <span x-text="progress.status"></span></p>
         <div class="progress-bar-container">
           <div class="progress-bar" 
-               :class="progress.isComplete ? 'complete' : 'in-progress'"
+               :class="{
+                 'complete': progress.isComplete,
+                 'in-progress': !progress.isComplete && progress.status !== 'cancelled',
+                 'cancelled': progress.status === 'cancelled'
+               }"
                :style="`width: ${progress.percentage}%;`">
           </div>
         </div>

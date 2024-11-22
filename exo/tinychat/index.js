@@ -482,6 +482,44 @@ document.addEventListener("alpine:init", () => {
         console.error('Error deleting model:', error);
         this.setError(error.message || 'Failed to delete model');
       }
+    },
+
+    async cancelDownload(repoId, revision) {
+      if (!confirm('Are you sure you want to pause this download? The partial download will be kept.')) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`${this.endpoint}/cancel_download`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            repo_id: repoId,
+            revision: revision
+          })
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.detail || 'Failed to cancel download');
+        }
+
+        // Update the UI to show the download is cancelled
+        const progress = this.downloadProgress.find(p => 
+          p.repo_id === repoId && p.repo_revision === revision
+        );
+        if (progress) {
+          progress.status = 'cancelled';
+        }
+
+        // Refresh the model list to show current state
+        await this.populateSelector();
+      } catch (error) {
+        console.error('Error canceling download:', error);
+        this.setError(error);
+      }
     }
   }));
 });
