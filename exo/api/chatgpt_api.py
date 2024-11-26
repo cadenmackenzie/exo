@@ -232,51 +232,55 @@ class ChatGPTAPI:
         )
         await response.prepare(request)
         
+        # Create tasks for all model checks to run concurrently
+        check_tasks = []
         for model_name, pretty in pretty_name.items():
             if model_name in model_cards:
-                model_info = model_cards[model_name]
-                
-                required_engines = list(dict.fromkeys(
-                    [engine_name for engine_list in self.node.topology_inference_engines_pool 
-                     for engine_name in engine_list 
-                     if engine_name is not None] + 
-                    [self.inference_engine_classname]
-                ))
-                
-                if all(map(lambda engine: engine in model_info["repo"], required_engines)):
-                    shard = build_base_shard(model_name, self.inference_engine_classname)
-                    if shard:
-                        downloader = HFShardDownloader(quick_check=True)
-                        downloader.current_shard = shard
-                        downloader.current_repo_id = get_repo(shard.model_id, self.inference_engine_classname)
-                        status = await downloader.get_shard_download_status()
-                        
-                        download_percentage = status.get("overall") if status else None
-                        total_size = status.get("total_size") if status else None
-                        total_downloaded = status.get("total_downloaded") if status else False
-                        
-                        model_data = {
-                            model_name: {
-                                "name": pretty,
-                                "downloaded": download_percentage == 100 if download_percentage is not None else False,
-                                "download_percentage": download_percentage,
-                                "total_size": total_size,
-                                "total_downloaded": total_downloaded
-                            }
-                        }
-                        
-                        await response.write(f"data: {json.dumps(model_data)}\n\n".encode())
+                check_tasks.append(self.check_model_status(model_name, pretty, response))
+        
+        # Run all checks concurrently
+        await asyncio.gather(*check_tasks)
         
         await response.write(b"data: [DONE]\n\n")
         return response
         
     except Exception as e:
-        print(f"Error in handle_model_support: {str(e)}")
-        traceback.print_exc()
-        return web.json_response(
-            {"detail": f"Server error: {str(e)}"}, 
-            status=500
-        )
+        print(f"Error in handle_model_support: {e}")
+        return web.Response(status=500, text=str(e))
+
+  async def check_model_status(self, model_name: str, pretty: str, response: web.StreamResponse):
+    model_info = model_cards[model_name]
+    
+    required_engines = list(dict.fromkeys(
+        [engine_name for engine_list in self.node.topology_inference_engines_pool 
+         for engine_name in engine_list 
+         if engine_name is not None] + 
+        [self.inference_engine_classname]
+    ))
+    
+    if all(map(lambda engine: engine in model_info["repo"], required_engines)):
+        shard = build_base_shard(model_name, self.inference_engine_classname)
+        if shard:
+            downloader = HFShardDownloader(quick_check=True)
+            downloader.current_shard = shard
+            downloader.current_repo_id = get_repo(shard.model_id, self.inference_engine_classname)
+            status = await downloader.get_shard_download_status()
+            
+            download_percentage = status.get("overall") if status else None
+            total_size = status.get("total_size") if status else None
+            total_downloaded = status.get("total_downloaded") if status else False
+            
+            model_data = {
+                model_name: {
+                    "name": pretty,
+                    "downloaded": download_percentage == 100 if download_percentage is not None else False,
+                    "download_percentage": download_percentage,
+                    "total_size": total_size,
+                    "total_downloaded": total_downloaded
+                }
+            }
+            
+            await response.write(f"data: {json.dumps(model_data)}\n\n".encode())
 
   async def handle_get_models(self, request):
     return web.json_response([{"id": model_name, "object": "model", "owned_by": "exo", "ready": True} for model_name, _ in model_cards.items()])
