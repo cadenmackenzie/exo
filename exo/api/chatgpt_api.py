@@ -238,7 +238,9 @@ class ChatGPTAPI:
         try:
             for node_id, progress_event in self.node.node_download_progress.items():
                 if isinstance(progress_event, RepoProgressEvent):
-                    download_progress[progress_event.repo_id.lower()] = progress_event.to_dict()
+                    # Only include non-completed downloads
+                    if not progress_event.isComplete:
+                        download_progress[progress_event.repo_id.lower()] = progress_event.to_dict()
         except Exception as e:
             if DEBUG >= 2: print(f"Error getting download progress: {e}")
         
