@@ -61,6 +61,13 @@
                             <span x-text="model.downloaded ? 'Downloaded' : `${Math.round(model.download_percentage)}% downloaded`"></span>
                         </span>
                     </template>
+                    <template x-if="!model.loading && (model.download_percentage === null || model.download_percentage < 100)">
+                        <button 
+                            @click.stop="handleDownload(key)"
+                            class="model-download-button">
+                            <i class="fas fa-download"></i> Download
+                        </button>
+                    </template>
                 </div>
                 <template x-if="model.total_size">
                     <div class="model-size" x-text="model.total_downloaded ? 

@@ -623,3 +623,28 @@ main {
         transform: rotate(360deg);
     }
 }
+
+/* Add these styles */
+.model-download-button {
+    background: none;
+    border: none;
+    color: var(--primary-color);
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background-color: var(--primary-bg-color);
+    font-size: 0.9em;
+}
+
+.model-download-button:hover {
+    transform: scale(1.05);
+    background-color: var(--secondary-color-transparent);
+}
+
+.model-download-button i {
+    font-size: 0.9em;
+}
