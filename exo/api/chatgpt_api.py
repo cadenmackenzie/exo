@@ -232,44 +232,54 @@ class ChatGPTAPI:
         )
         await response.prepare(request)
         
+        # Get current download progress
+        download_progress = {}
+        try:
+            for node_id, progress_event in self.node.node_download_progress.items():
+                if isinstance(progress_event, RepoProgressEvent):
+                    download_progress[progress_event.repo_id.lower()] = progress_event.to_dict()
+        except Exception as e:
+            if DEBUG >= 2: print(f"Error getting download progress: {e}")
+        
         for model_name, pretty in pretty_name.items():
             if model_name in model_cards:
-                model_info = model_cards[model_name]
-                
-                required_engines = list(dict.fromkeys(
-                    [engine_name for engine_list in self.node.topology_inference_engines_pool 
-                     for engine_name in engine_list 
-                     if engine_name is not None] + 
-                    [self.inference_engine_classname]
-                ))
-                
-                if all(map(lambda engine: engine in model_info["repo"], required_engines)):
-                    shard = build_base_shard(model_name, self.inference_engine_classname)
-                    if shard:
-                        downloader = HFShardDownloader(quick_check=True)
-                        downloader.current_shard = shard
-                        downloader.current_repo_id = get_repo(shard.model_id, self.inference_engine_classname)
-                        status = await downloader.get_shard_download_status()
-                        
-                        download_percentage = status.get("overall") if status else None
-                        total_size = status.get("total_size") if status else None
-                        total_downloaded = status.get("total_downloaded") if status else False
-                        
-                        model_data = {
-                            model_name: {
-                                "name": pretty,
-                                "downloaded": download_percentage == 100 if download_percentage is not None else False,
-                                "download_percentage": download_percentage,
-                                "total_size": total_size,
-                                "total_downloaded": total_downloaded
-                            }
+                shard = build_base_shard(model_name, self.inference_engine_classname)
+                if shard:
+                    downloader = HFShardDownloader(quick_check=True)
+                    downloader.current_shard = shard
+                    downloader.current_repo_id = get_repo(shard.model_id, self.inference_engine_classname)
+                    status = await downloader.get_shard_download_status()
+                    
+                    download_percentage = status.get("overall") if status else None
+                    total_size = status.get("total_size") if status else None
+                    total_downloaded = status.get("total_downloaded") if status else False
+                    
+                    # Check if this model has an active download
+                    repo_id = get_repo(shard.model_id, self.inference_engine_classname).lower()
+                    active_download = download_progress.get(repo_id)
+                    is_downloading = bool(active_download and not active_download.get("isComplete", False))
+                    
+                    # Include speed and ETA information if downloading
+                    download_speed = active_download.get("overall_speed") if active_download else None
+                    download_eta = active_download.get("overall_eta") if active_download else None
+                    
+                    model_data = {
+                        model_name: {
+                            "name": pretty,
+                            "downloaded": download_percentage == 100 if download_percentage is not None else False,
+                            "download_percentage": download_percentage,
+                            "total_size": total_size,
+                            "total_downloaded": total_downloaded,
+                            "is_downloading": is_downloading,
+                            "download_speed": download_speed,
+                            "download_eta": download_eta
                         }
-                        
-                        await response.write(f"data: {json.dumps(model_data)}\n\n".encode())
+                    }
+                    
+                    await response.write(f"data: {json.dumps(model_data)}\n\n".encode())
         
         await response.write(b"data: [DONE]\n\n")
         return response
-        
     except Exception as e:
         print(f"Error in handle_model_support: {str(e)}")
         traceback.print_exc()
