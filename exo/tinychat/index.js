@@ -86,14 +86,9 @@ document.addEventListener("alpine:init", () => {
           const modelData = JSON.parse(event.data);
           Object.entries(modelData).forEach(([modelName, data]) => {
             if (this.models[modelName]) {
-              // Determine if the model is actively downloading
-              const isActiveDownload = data.download_percentage > 0 && data.download_percentage < 100;
-              
               this.models[modelName] = {
                 ...this.models[modelName],
-                ...data,
-                is_downloading: isActiveDownload,
-                loading: false
+                ...data
               };
             }
           });
@@ -461,11 +456,7 @@ document.addEventListener("alpine:init", () => {
         if (this.models[modelName]) {
           this.models[modelName] = {
             ...this.models[modelName],
-            is_downloading: true,       // Set download flag
-            downloaded: false,          // Reset downloaded status
-            download_percentage: 0,     // Initialize download percentage
-            download_speed: 0,         // Initialize download speed
-            download_eta: null         // Initialize ETA
+            is_downloading: true       // Set download flag
           };
         }
 

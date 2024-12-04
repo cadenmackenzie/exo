@@ -49,11 +49,11 @@
             </div>
             <div class="model-info">
                 <div class="model-progress">
-                    <template x-if="model.loading">
+                    <template x-if="model.is_downloading">
                         <span><i class="fas fa-spinner fa-spin"></i> Checking download status...</span>
                     </template>
                     <div class="model-progress-info">
-                        <template x-if="!model.loading && model.download_percentage != null">
+                        <template x-if="!model.is_downloading && model.download_percentage != null">
                             <span>
                                 <!-- Check if there's an active download for this model -->
                                 <template x-if="model.is_downloading">
@@ -62,7 +62,7 @@
                                 <span x-text="model.downloaded ? 'Downloaded' : `${Math.round(model.download_percentage)}% downloaded`"></span>
                             </span>
                         </template>
-                        <template x-if="!model.loading && (model.download_percentage === null || model.download_percentage < 100)">
+                        <template x-if="!model.is_downloading && (model.download_percentage === null || model.download_percentage < 100) && !Object.values(models).some(m => m.is_downloading)">
                             <button 
                                 @click.stop="handleDownload(key)"
                                 class="model-download-button">
