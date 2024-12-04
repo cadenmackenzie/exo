@@ -1,3 +1,4 @@
+from asyncio.log import logger
 import uuid
 import time
 import asyncio
@@ -229,55 +230,101 @@ class ChatGPTAPI:
                 'Content-Type': 'text/event-stream',
                 'Cache-Control': 'no-cache',
                 'Connection': 'keep-alive',
+                'Access-Control-Allow-Origin': '*',
             }
         )
         await response.prepare(request)
         
-        for model_name, pretty in pretty_name.items():
-            if model_name in model_cards:
-                model_info = model_cards[model_name]
+        while True:
+            try:
+                # Get current download progress
+                download_progress = {}
+                if DEBUG >= 2: print("\nChecking node_download_progress:", self.node.node_download_progress)
                 
-                required_engines = list(dict.fromkeys(
-                    [engine_name for engine_list in self.node.topology_inference_engines_pool 
-                     for engine_name in engine_list 
-                     if engine_name is not None] + 
-                    [self.inference_engine_classname]
-                ))
-                
-                if all(map(lambda engine: engine in model_info["repo"], required_engines)):
-                    shard = build_base_shard(model_name, self.inference_engine_classname)
-                    if shard:
-                        downloader = HFShardDownloader(quick_check=True)
-                        downloader.current_shard = shard
-                        downloader.current_repo_id = get_repo(shard.model_id, self.inference_engine_classname)
-                        status = await downloader.get_shard_download_status()
-                        
-                        download_percentage = status.get("overall") if status else None
-                        total_size = status.get("total_size") if status else None
-                        total_downloaded = status.get("total_downloaded") if status else False
-                        
-                        model_data = {
-                            model_name: {
+                try:
+                    for node_id, progress_event in self.node.node_download_progress.items():
+                        if isinstance(progress_event, RepoProgressEvent):
+                            progress_dict = progress_event.to_dict()
+                            if DEBUG >= 2: print(f"Found progress event for {node_id}: {progress_dict}")
+                            
+                            repo_id = progress_dict['repo_id'].lower()
+                            
+                            # Check if download is actually complete
+                            is_complete = (progress_dict['downloaded_bytes'] >= progress_dict['total_bytes']) if progress_dict['total_bytes'] > 0 else False
+                            
+                            download_progress[repo_id] = {
+                                'overall_speed': progress_dict['overall_speed'],
+                                'overall_eta': progress_dict['overall_eta'],
+                                'downloaded_bytes': progress_dict['downloaded_bytes'],
+                                'total_bytes': progress_dict['total_bytes'],
+                                'status': 'complete' if is_complete else progress_dict['status']
+                            }
+                            if DEBUG >= 2: 
+                                print(f"Added active download for {repo_id}")
+                                print(f"Download status: {download_progress[repo_id]['status']}")
+                                
+                except Exception as e:
+                    if DEBUG >= 2: print(f"Error getting download progress: {e}")
+
+                # Build response data
+                model_data = {}
+                for model_name, pretty in pretty_name.items():
+                    if model_name in model_cards:
+                        shard = build_base_shard(model_name, self.inference_engine_classname)
+                        if shard:
+                            repo_id = get_repo(shard.model_id, self.inference_engine_classname).lower()
+                            if DEBUG >= 2: print(f"\nChecking model {model_name} with repo_id {repo_id}")
+                            
+                            # Get download status
+                            active_download = download_progress.get(repo_id)
+                            
+                            # Calculate download percentage
+                            if active_download:
+                                download_percentage = (active_download['downloaded_bytes'] / active_download['total_bytes']) * 100 if active_download['total_bytes'] > 0 else 0
+                                is_downloading = (active_download['status'] == 'in_progress' and download_percentage < 100)
+                            else:
+                                downloader = HFShardDownloader(quick_check=True)
+                                downloader.current_shard = shard
+                                downloader.current_repo_id = repo_id
+                                status = await downloader.get_shard_download_status()
+                                download_percentage = status.get("overall") if status else None
+                                is_downloading = False
+                                
+                            if DEBUG >= 2: 
+                                print(f"Download progress for {repo_id}: {active_download}")
+                                if active_download:
+                                    print(f"Is downloading: {is_downloading} (status: {active_download['status']}, percentage: {download_percentage})")
+                            
+                            model_data[model_name] = {
                                 "name": pretty,
                                 "downloaded": download_percentage == 100 if download_percentage is not None else False,
                                 "download_percentage": download_percentage,
-                                "total_size": total_size,
-                                "total_downloaded": total_downloaded
+                                "total_size": active_download['total_bytes'] if active_download else None,
+                                "total_downloaded": active_download['downloaded_bytes'] if active_download else None,
+                                "is_downloading": is_downloading,
+                                "download_speed": active_download['overall_speed'] if active_download else None,
+                                "download_eta": active_download['overall_eta'] if active_download else None
                             }
-                        }
-                        
-                        await response.write(f"data: {json.dumps(model_data)}\n\n".encode())
-        
-        await response.write(b"data: [DONE]\n\n")
+
+                # Send the data
+                await response.write(f"data: {json.dumps(model_data)}\n\n".encode())
+                await response.drain()
+                
+                await asyncio.sleep(1)
+                
+            except Exception as e:
+                if DEBUG >= 2: print(f"Error in model support loop: {e}")
+                continue
+                
+    except ConnectionResetError:
+        if DEBUG >= 2: print("Client disconnected")
         return response
         
     except Exception as e:
-        print(f"Error in handle_model_support: {str(e)}")
-        traceback.print_exc()
-        return web.json_response(
-            {"detail": f"Server error: {str(e)}"}, 
-            status=500
-        )
+        if DEBUG >= 2: print(f"Fatal error in model support: {e}")
+        return web.Response(status=500, text=str(e))
+
+    return response
 
   async def handle_get_models(self, request):
     return web.json_response([{"id": model_name, "object": "model", "owned_by": "exo", "ready": True} for model_name, _ in model_cards.items()])
@@ -485,11 +532,11 @@ class ChatGPTAPI:
     for model_name, pretty in pretty_name.items():
         model_data[model_name] = {
             "name": pretty,
-            "downloaded": None,  # Initially unknown
-            "download_percentage": None,  # Change from 0 to null
+            "downloaded": None,
+            "download_percentage": None,
             "total_size": None,
             "total_downloaded": None,
-            "loading": True  # Add loading state
+            "is_downloading": True
         }
     return web.json_response(model_data)
 

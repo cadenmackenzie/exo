@@ -49,20 +49,28 @@
             </div>
             <div class="model-info">
                 <div class="model-progress">
-                    <template x-if="model.loading">
+                    <template x-if="model.is_downloading">
                         <span><i class="fas fa-spinner fa-spin"></i> Checking download status...</span>
                     </template>
-                    <template x-if="!model.loading && model.download_percentage != null">
-                        <span>
-                            <!-- Check if there's an active download for this model -->
-                            <template x-if="downloadProgress?.some(p => 
-                                p.repo_id && p.repo_id.toLowerCase().includes(key.toLowerCase()) && !p.isComplete
-                            )">
-                                <i class="fas fa-circle-notch fa-spin"></i>
-                            </template>
-                            <span x-text="model.downloaded ? 'Downloaded' : `${Math.round(model.download_percentage)}% downloaded`"></span>
-                        </span>
-                    </template>
+                    <div class="model-progress-info">
+                        <template x-if="!model.is_downloading && model.download_percentage != null">
+                            <span>
+                                <!-- Check if there's an active download for this model -->
+                                <template x-if="model.is_downloading">
+                                    <i class="fas fa-circle-notch fa-spin"></i>
+                                </template>
+                                <span x-text="model.downloaded ? 'Downloaded' : `${Math.round(model.download_percentage)}% downloaded`"></span>
+                            </span>
+                        </template>
+                        <template x-if="!model.is_downloading && (model.download_percentage === null || model.download_percentage < 100) && !Object.values(models).some(m => m.is_downloading)">
+                            <button 
+                                @click.stop="handleDownload(key)"
+                                class="model-download-button">
+                                <i class="fas fa-download"></i>
+                                <span x-text="(model.download_percentage > 0 && model.download_percentage < 100) ? 'Continue Downloading' : 'Download'"></span>
+                            </button>
+                        </template>
+                    </div>
                 </div>
                 <template x-if="model.total_size">
                     <div class="model-size" x-text="model.total_downloaded ? 
@@ -211,29 +219,26 @@
 </div>
 
 <!-- Download Progress Section -->
-<template x-if="downloadProgress && downloadProgress.length > 0">
+<template x-if="Object.values(models).some(model => model.is_downloading)">
   <div class="download-progress message message-role-assistant">
     <h2>Download Progress</h2>
     <br>
-    <template x-for="(progress, index) in downloadProgress" :key="index">
+    <template x-for="([modelName, model]) in Object.entries(models).filter(([_, model]) => model.is_downloading).slice(0, 1)" :key="modelName">
       <div class="download-progress-node">
         <br>
-        <h3 x-text="`Download ${index + 1}`"></h3>
-        <p><strong>Model:</strong> <span x-text="progress.repo_id + '@' + progress.repo_revision"></span></p>
-        <p><strong>Status:</strong> <span x-text="progress.status"></span></p>
+        <h3 x-text="`Model: ${model.name}`"></h3>
+        <p><strong>Status:</strong> Downloading</p>
         <div class="progress-bar-container">
           <div class="progress-bar" 
-               :class="progress.isComplete ? 'complete' : 'in-progress'"
-               :style="`width: ${progress.percentage}%;`">
+              :class="model.download_percentage ? 'in-progress' : 'complete'"
+              :style="`width: ${model.download_percentage}%;`">
           </div>
         </div>
-        <template x-if="!progress.isComplete">
-          <div>
-            <p><strong>Progress:</strong> <span x-text="`${progress.downloaded_bytes_display} / ${progress.total_bytes_display} (${progress.percentage}%)`"></span></p>
-            <p><strong>Speed:</strong> <span x-text="progress.overall_speed_display || 'N/A'"></span></p>
-            <p><strong>ETA:</strong> <span x-text="progress.overall_eta_display || 'N/A'"></span></p>
-          </div>
-        </template>
+        <div>
+          <p><strong>Progress:</strong> <span x-text="`${formatBytes(model.total_downloaded)} / ${formatBytes(model.total_size)} (${Math.round(model.download_percentage)}%)`"></span></p>
+          <p><strong>Speed:</strong> <span x-text="model.download_speed ? formatBytes(model.download_speed) + '/s' : 'N/A'"></span></p>
+          <p><strong>ETA:</strong> <span x-text="model.download_eta ? formatDuration(model.download_eta) : 'N/A'"></span></p>
+        </div>
       </div>
     </template>
   </div>

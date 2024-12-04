@@ -27,10 +27,6 @@ document.addEventListener("alpine:init", () => {
     // image handling
     imagePreview: null,
 
-    // download progress
-    downloadProgress: null,
-    downloadProgressInterval: null, // To keep track of the polling interval
-
     // Pending message storage
     pendingMessage: null,
 
@@ -46,9 +42,6 @@ document.addEventListener("alpine:init", () => {
       // Get initial model list
       this.fetchInitialModels();
 
-      // Start polling for download progress
-      this.startDownloadProgressPolling();
-      
       // Start model polling with the new pattern
       this.startModelPolling();
     },
@@ -91,13 +84,11 @@ document.addEventListener("alpine:init", () => {
           }
           
           const modelData = JSON.parse(event.data);
-          // Update existing model data while preserving other properties
           Object.entries(modelData).forEach(([modelName, data]) => {
             if (this.models[modelName]) {
               this.models[modelName] = {
                 ...this.models[modelName],
-                ...data,
-                loading: false
+                ...data
               };
             }
           });
@@ -375,76 +366,6 @@ document.addEventListener("alpine:init", () => {
       }
     },
 
-    async fetchDownloadProgress() {
-      try {
-        const response = await fetch(`${this.endpoint}/download/progress`);
-        if (response.ok) {
-          const data = await response.json();
-          const progressArray = Object.values(data);
-          if (progressArray.length > 0) {
-            this.downloadProgress = progressArray.map(progress => {
-              // Check if download is complete
-              if (progress.status === "complete") {
-                return {
-                  ...progress,
-                  isComplete: true,
-                  percentage: 100
-                };
-              } else if (progress.status === "failed") {
-                return {
-                  ...progress,
-                  isComplete: false,
-                  errorMessage: "Download failed"
-                };
-              } else {
-                return {
-                  ...progress,
-                  isComplete: false,
-                  downloaded_bytes_display: this.formatBytes(progress.downloaded_bytes),
-                  total_bytes_display: this.formatBytes(progress.total_bytes),
-                  overall_speed_display: progress.overall_speed ? this.formatBytes(progress.overall_speed) + '/s' : '',
-                  overall_eta_display: progress.overall_eta ? this.formatDuration(progress.overall_eta) : '',
-                  percentage: ((progress.downloaded_bytes / progress.total_bytes) * 100).toFixed(2)
-                };
-              }
-            });
-            const allComplete = this.downloadProgress.every(progress => progress.isComplete);
-            if (allComplete) {
-              // Check for pendingMessage
-              const savedMessage = localStorage.getItem("pendingMessage");
-              if (savedMessage) {
-                // Clear pendingMessage
-                localStorage.removeItem("pendingMessage");
-                // Call processMessage() with savedMessage
-                if (this.lastErrorMessage) {
-                  await this.processMessage(savedMessage);
-                }
-              }
-              this.lastErrorMessage = null;
-              this.downloadProgress = null;
-            }
-          } else {
-            // No ongoing download
-            this.downloadProgress = null;
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching download progress:", error);
-        this.downloadProgress = null;
-      }
-    },
-
-    startDownloadProgressPolling() {
-      if (this.downloadProgressInterval) {
-        // Already polling
-        return;
-      }
-      this.fetchDownloadProgress(); // Fetch immediately
-      this.downloadProgressInterval = setInterval(() => {
-        this.fetchDownloadProgress();
-      }, 1000); // Poll every second
-    },
-
     // Add a helper method to set errors consistently
     setError(error) {
       this.errorMessage = {
@@ -510,6 +431,38 @@ document.addEventListener("alpine:init", () => {
       } catch (error) {
         console.error('Error deleting model:', error);
         this.setError(error.message || 'Failed to delete model');
+      }
+    },
+
+    async handleDownload(modelName) {
+      try {
+        const response = await fetch(`${window.location.origin}/download`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: modelName
+          })
+        });
+
+        const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to start download');
+        }
+
+        // Update the model's status immediately when download starts
+        if (this.models[modelName]) {
+          this.models[modelName] = {
+            ...this.models[modelName],
+            is_downloading: true       // Set download flag
+          };
+        }
+
+      } catch (error) {
+        console.error('Error starting download:', error);
+        this.setError(error);
       }
     }
   }));
