@@ -655,3 +655,33 @@ main {
 .model-download-button i {
   font-size: 0.9em;
 }
+
+.browser-task-container {
+    margin-top: 2rem;
+    width: 100%;
+    max-width: 800px;
+    padding: 1rem;
+}
+
+.browser-task-input {
+    width: 100%;
+    min-height: 100px;
+    padding: 0.5rem;
+    margin-bottom: 1rem;
+    border-radius: 8px;
+    border: 1px solid var(--secondary-color);
+}
+
+.browser-task-button {
+    padding: 0.5rem 1rem;
+    background-color: var(--primary-color);
+    color: #000;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.browser-task-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}

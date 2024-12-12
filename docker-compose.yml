@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  exo-browser-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "52415:52415"
+    volumes:
+      - .:/app
+    environment:
+      - DISPLAY=:99
+      - PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+    privileged: true
+    networks:
+      - exo-network
+
+networks:
+  exo-network:
+    driver: bridge

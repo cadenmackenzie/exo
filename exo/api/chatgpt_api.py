@@ -21,6 +21,7 @@ from exo.download.hf.hf_shard_download import HFShardDownloader
 import shutil
 from exo.download.hf.hf_helpers import get_hf_home, get_repo_root
 from exo.apputil import create_animation_mp4
+from exo.agent.browser_agent import BrowserAgent
 
 class Message:
   def __init__(self, role: str, content: Union[str, List[Dict[str, Union[str, Dict[str, str]]]]]):
@@ -183,6 +184,7 @@ class ChatGPTAPI:
     cors.add(self.app.router.add_post("/create_animation", self.handle_create_animation), {"*": cors_options})
     cors.add(self.app.router.add_post("/download", self.handle_post_download), {"*": cors_options})
     cors.add(self.app.router.add_get("/topology", self.handle_get_topology), {"*": cors_options})
+    cors.add(self.app.router.add_post("/browser_task", self.handle_browser_task), {"*": cors_options})
 
     if "__compiled__" not in globals():
       self.static_dir = Path(__file__).parent.parent/"tinychat"
@@ -570,6 +572,24 @@ class ChatGPTAPI:
         {"detail": f"Error getting topology: {str(e)}"},
         status=500
       )
+
+  async def handle_browser_task(self, request):
+    try:
+        data = await request.json()
+        task = data.get("task")
+        if not task:
+            return web.json_response({"error": "task is required"}, status=400)
+
+        agent = BrowserAgent()
+        await agent.execute_task(task)
+
+        return web.json_response({
+            "status": "success",
+            "message": "Task completed successfully"
+        })
+    except Exception as e:
+        if DEBUG >= 2: traceback.print_exc()
+        return web.json_response({"error": str(e)}, status=500)
 
   async def run(self, host: str = "0.0.0.0", port: int = 52415):
     runner = web.AppRunner(self.app)

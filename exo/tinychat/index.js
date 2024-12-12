@@ -39,6 +39,9 @@ document.addEventListener("alpine:init", () => {
     // Add models state alongside existing state
     models: {},
 
+    // Add to Alpine.js data
+    browserTask: "",
+
     init() {
       // Clean up any pending messages
       localStorage.removeItem("pendingMessage");
@@ -543,6 +546,32 @@ document.addEventListener("alpine:init", () => {
         console.error('Error starting download:', error);
         this.setError(error);
       }
+    },
+
+    // Add new method
+    async handleBrowserTask() {
+        try {
+            const response = await fetch(`${window.location.origin}/browser_task`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    task: this.browserTask
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to execute browser task');
+            }
+
+            const result = await response.json();
+            console.log('Task completed:', result);
+            this.browserTask = '';
+        } catch (error) {
+            console.error('Error executing browser task:', error);
+            this.setError(error);
+        }
     }
   }));
 });

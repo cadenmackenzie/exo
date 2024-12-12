@@ -249,6 +249,21 @@
   </div>
 </template>
 
+<div class="browser-task-container" x-show="home === 1">
+    <h2>Browser Task</h2>
+    <textarea 
+        x-model="browserTask"
+        placeholder="Describe the task you want the AI to complete..."
+        class="browser-task-input"
+    ></textarea>
+    <button 
+        @click="handleBrowserTask()"
+        :disabled="!browserTask || generating"
+        class="browser-task-button"
+    >
+        Execute Task
+    </button>
+</div>
 
 <div class="input-container">
 <div class="input-performance">
